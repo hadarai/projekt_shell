@@ -10,6 +10,7 @@ typedef struct
 
 static int do_quit(char **argv)
 {
+  shutdownjobs();
   exit(EXIT_SUCCESS);
 }
 
@@ -134,23 +135,23 @@ noreturn void external_command(char **argv)
     // strcspn - get length of prefix substring
     while (path < path_end && (path_delimiter_position = strcspn(path, ":")) > 0) //dopoki nie skonczyla mi sie sciezka i path_delimiter_position = dlugosc od początku do pozycji dwukropka (kolejnego)
     {
-        // char *strndup(const char *s, size_t n);
-        char *path_directory = strndup(path, path_delimiter_position); // path_directory = kopia stringa path od 0 do path_delimiter_position
+      // char *strndup(const char *s, size_t n);
+      char *path_directory = strndup(path, path_delimiter_position); // path_directory = kopia stringa path od 0 do path_delimiter_position
 
-        strapp(&path_directory, "/");     // doklejam "/" na koniec zmiennej ze sciezka
-        strapp(&path_directory, argv[0]); // doklejam nazwe programu na koniec zmiennej ze sciezka
+      strapp(&path_directory, "/");     // doklejam "/" na koniec zmiennej ze sciezka
+      strapp(&path_directory, argv[0]); // doklejam nazwe programu na koniec zmiennej ze sciezka
 
-        const char *const executable_name_copy = argv[0]; // kopiuje to co bylo w argumencie wykonania programu
-        argv[0] = (char *)path_directory;                 // wkladamy do argumentu wskaznik na sciezke absolutna do pliku
-        (void)execve(argv[0], argv, environ);             // uruchamiam program z arguementu do programu
-        argv[0] = (char *)executable_name_copy;           // do argumentu wkladam to co bylo tam wczesniej
-        free(path_directory);                             // zwalniam miejsce zajmowane przez zmienna pomocnicza (czyszcząc jej zawartosc)
+      const char *const executable_name_copy = argv[0]; // kopiuje to co bylo w argumencie wykonania programu
+      argv[0] = (char *)path_directory;                 // wkladamy do argumentu wskaznik na sciezke absolutna do pliku
+      (void)execve(argv[0], argv, environ);             // uruchamiam program z arguementu do programu
+      argv[0] = (char *)executable_name_copy;           // do argumentu wkladam to co bylo tam wczesniej
+      free(path_directory);                             // zwalniam miejsce zajmowane przez zmienna pomocnicza (czyszcząc jej zawartosc)
 
-        if (path_delimiter_position > 0) // jesli mi sie nie skonczyl path do ide dalej
-        {
-            path += path_delimiter_position + 1;
-        }
-        }
+      if (path_delimiter_position > 0) // jesli mi sie nie skonczyl path do ide dalej
+      {
+        path += path_delimiter_position + 1;
+      }
+    }
   }
   else
   {

@@ -31,16 +31,48 @@ static void sigchld_handler(int sig)
   // Zakonczyc job, ktorego wszystkie procesy sa finished
   // tworzac job tworzymy nowa grupe procesow.
   // SIGSTOP dostaje grupa procesow bedaca w foreground
-  pid = Waitpid(-1, &status, WNOHANG);
 
-  while (-1 != (pid = Waitpid(-1, &status, WNOHANG)))
+  for (int i = 0; i < njobmax; i++)
+  {
+    safe_printf("pgid: %d\n", jobs[i].pgid);
+    safe_printf("nproc: %d\n", jobs[i].nproc);
+    safe_printf("state: %d\n", jobs[i].state);
+
+    if (jobs[i].proc != 0)
+    {
+      safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
+      safe_printf("proc[state]: %d\n", jobs[i].proc->state);
+    }
+
+    for (int j = 0; j < jobs[i].nproc; j++)
+    {
+      safe_printf("siema2");
+      if (pid == jobs[i].proc->pid)
+      {
+        safe_printf("%d\n", pid);
+      }
+    }
+  }
+
+  while (-1 != (pid = waitpid(-1, &status, WNOHANG)))
   {
     safe_printf("SIEMA");
     safe_printf(status);
     for (int i = 0; i < njobmax; i++)
     {
+      safe_printf("pgid: %d\n", jobs[i].pgid);
+      safe_printf("nproc: %d\n", jobs[i].nproc);
+      safe_printf("state: %d\n", jobs[i].state);
+
+      if (jobs[i].proc != 0)
+      {
+        safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
+        safe_printf("proc[state]: %d\n", jobs[i].proc->state);
+      }
+
       for (int j = 0; j < jobs[i].nproc; j++)
       {
+        safe_printf("siema2");
         if (pid == jobs[i].proc->pid)
         {
           safe_printf("%d\n", pid);
@@ -144,8 +176,8 @@ int jobstate(int j, int *statusp)
 
   // TODO: Handle case where job has finished.
   // job decided to die
-
-  //if (state == FINISHED)
+  printf("DUPA: %d\n", state);
+  //if ( == FINISHED)
   //return 0;
 
   return state;
@@ -188,6 +220,10 @@ bool killjob(int j)
 
   // TODO: I love the smell of napalm in the morning. */
   // somebody decided that job should die
+  for (int i = 0; i < jobs[j].nproc; i++)
+  {
+    kill(jobs[j].proc[i].pid, SIGTERM);
+  }
 
   return true;
 }
@@ -201,6 +237,9 @@ void watchjobs(int which)
       continue;
 
     // TODO: Report job number, state, command and exit code or signal.
+    printf("Job number: %d \n", j);
+    printf("Job state: %d", jobs[j].state);
+    printf("Job command: %s", jobs[j].command);
   }
 }
 
@@ -211,6 +250,8 @@ int monitorjob(sigset_t *mask)
   int exitcode, state;
 
   // TODO: Following code requires use of Tcsetpgrp of tty_fd.
+  //Tcsetpgrp(tty_fd, getpgrp());
+
   //Tcsetpgrp()
 
   return exitcode;

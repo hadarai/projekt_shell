@@ -32,6 +32,7 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
   for (int i = 0; i < ntokens; i++)
   {
     // TODO: Handle tokens and open files as requested.
+    // ? DONE
     if (token[i] == T_INPUT)
     {
       *inputp = Open(token[i + 1], O_RDONLY, mode);
@@ -76,31 +77,46 @@ static int do_job(token_t *token, int ntokens, bool bg)
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   // TODO: Start a subprocess, create a job and monitor it.
+  printf("n= %d \n", ntokens);
 
   pid_t child_pid = Fork();
+  printf("ble1 ");
   size_t job_index;
+  printf("ble2 ");
 
   if (child_pid == 0)
   {
-    Setpgid(0, 0);
+    // Jestem w dziecku
+    printf("ble dziecko 3");
+    Setpgid(0, 0); //void Setpgid(pid_t pid, pid_t pgid) - jestli pid=0 to
+    printf("ble 4");
     Sigprocmask(SIG_SETMASK, &mask, NULL);
+    printf("ble 5");
     external_command(token);
+    printf("ble 6");
 
     while (true)
     {
-      if (jobstate(job_index, &exitcode) == FINISHED) //zwraca?
+      printf("ble 7");
+      int job_state = jobstate(job_index, &exitcode);
+      printf("jobstate: %d\n", job_state);
+      if (job_state == FINISHED) //co chwile pyta o jobstate
       {
+        printf("ble finished 8");
         Sigprocmask(SIG_SETMASK, &sigchld_mask, &mask);
         break;
       }
       else
       {
-        sigsuspend(&mask);
+        printf("ble 9");
+        Sigsuspend(&mask);
       }
     }
   }
   else
   {
+    //Jestem w rodzicu
+    printf("ble tata\n");
     job_index = addjob(child_pid, bg);
   }
 
