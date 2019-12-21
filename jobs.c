@@ -20,6 +20,7 @@ static job_t *jobs = NULL; /* array of all jobs */
 static int njobmax = 1;    /* number of slots in jobs array */
 static int tty_fd = -1;    /* controlling terminal file descriptor */
 
+// Odpala sie u rodzica gdy dziecko skonczy prace!
 static void sigchld_handler(int sig)
 {
   int old_errno = errno;
@@ -27,55 +28,41 @@ static void sigchld_handler(int sig)
   int status;
 
   // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs.
-  // Bury all children that finished saving their status in jobs.
+  // Bury all children that finished, saving their status in jobs.
+
   // Zakonczyc job, ktorego wszystkie procesy sa finished
   // tworzac job tworzymy nowa grupe procesow.
   // SIGSTOP dostaje grupa procesow bedaca w foreground
+  safe_printf("Do rodzica: dziecko skonczylo! \n");
 
-  for (int i = 0; i < njobmax; i++)
+  while (-1 != (pid = waitpid(-1, &status, WNOHANG))) //pid = pid dziecka, ktore skonczylo
   {
-    safe_printf("pgid: %d\n", jobs[i].pgid);
-    safe_printf("nproc: %d\n", jobs[i].nproc);
-    safe_printf("state: %d\n", jobs[i].state);
-
-    if (jobs[i].proc != 0)
-    {
-      safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
-      safe_printf("proc[state]: %d\n", jobs[i].proc->state);
-    }
-
-    for (int j = 0; j < jobs[i].nproc; j++)
-    {
-      safe_printf("siema2");
-      if (pid == jobs[i].proc->pid)
-      {
-        safe_printf("%d\n", pid);
-      }
-    }
-  }
-
-  while (-1 != (pid = waitpid(-1, &status, WNOHANG)))
-  {
-    safe_printf("SIEMA");
-    safe_printf(status);
+    //? safe_printf("Status dziecka: %d\n", status);
     for (int i = 0; i < njobmax; i++)
     {
-      safe_printf("pgid: %d\n", jobs[i].pgid);
-      safe_printf("nproc: %d\n", jobs[i].nproc);
-      safe_printf("state: %d\n", jobs[i].state);
+      // safe_printf("pgid: %d\n", jobs[i].pgid);
+      // safe_printf("nproc: %d\n", jobs[i].nproc);
+      // safe_printf("state: %d\n", jobs[i].state);
 
-      if (jobs[i].proc != 0)
+      // if (jobs[i].nproc != 0)
+      // {
+      //   safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
+      //   safe_printf("proc[state]: %d\n", jobs[i].proc->state);
+      // }
+      if (jobs[i].nproc == 0)
       {
-        safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
-        safe_printf("proc[state]: %d\n", jobs[i].proc->state);
+        jobs[i].state = FINISHED;
       }
-
-      for (int j = 0; j < jobs[i].nproc; j++)
+      else
       {
-        safe_printf("siema2");
-        if (pid == jobs[i].proc->pid)
+        for (int j = 0; j < jobs[i].nproc; j++)
         {
-          safe_printf("%d\n", pid);
+          //? safe_printf("siema2");
+          if (pid == jobs[i].proc->pid)
+          {
+            jobs[i].state = FINISHED;
+            //? safe_printf("%d\n", pid);
+          }
         }
       }
     }
@@ -109,6 +96,7 @@ static int allocproc(int j)
   return job->nproc++;
 }
 
+// Adds info about new job to array
 int addjob(pid_t pgid, int bg)
 {
   int j = bg ? allocjob() : FG;
@@ -175,14 +163,17 @@ int jobstate(int j, int *statusp)
   int state = job->state;
 
   // TODO: Handle case where job has finished.
+  if (state == FINISHED)
+  {
+    deljob(job);
+  }
   // job decided to die
-  printf("DUPA: %d\n", state);
-  //if ( == FINISHED)
-  //return 0;
+  // ? printf("DUPA: %d\n", state);
 
   return state;
 }
 
+// Returns job's command
 char *jobcmd(int j)
 {
   assert(j < njobmax);
@@ -243,8 +234,8 @@ void watchjobs(int which)
   }
 }
 
-/* Monitor job execution. If it gets stopped move it to background.
- * When a job has finished or has been stopped move shell to foreground. */
+// Monitor job execution. If it gets stopped move it to background.
+// When a job has finished or has been stopped move shell to foreground.
 int monitorjob(sigset_t *mask)
 {
   int exitcode, state;
@@ -278,6 +269,13 @@ void shutdownjobs(void)
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   // TODO: Kill remaining jobs and wait for them to finish. */
+
+  for (int j = BG; j < njobmax; j++)
+  {
+    if (jobs[j].pgid == 0)
+      continue;
+    killjob(j);
+  }
 
   watchjobs(FINISHED);
 
