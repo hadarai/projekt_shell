@@ -33,7 +33,7 @@ static void sigchld_handler(int sig)
   // Zakonczyc job, ktorego wszystkie procesy sa finished
   // tworzac job tworzymy nowa grupe procesow.
   // SIGSTOP dostaje grupa procesow bedaca w foreground
-  safe_printf("Do rodzica: dziecko skonczylo! \n");
+  //? safe_printf("Do rodzica: dziecko skonczylo! \n");
 
   while (-1 != (pid = waitpid(-1, &status, WNOHANG))) //pid = pid dziecka, ktore skonczylo
   {

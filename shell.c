@@ -73,7 +73,9 @@ static int do_job(token_t *token, int ntokens, bool bg)
   if ((exitcode = builtin_command(token)) >= 0)
     return exitcode;
 
+  //maska pomocnicza, do ktorej cos skopiujemy
   sigset_t mask;
+  //ustawia, ze sygnaly napisane w sigchld beda blokowane. stara maska jest w mask
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   // TODO: Start a subprocess, create a job and monitor it.
@@ -93,6 +95,7 @@ static int do_job(token_t *token, int ntokens, bool bg)
     // If pgid is zero, then the PGID of the process specified by pid is made the same as its process ID.
     // ?printf("Ustawilem dziecku pgid\n");
     Sigprocmask(SIG_SETMASK, &mask, NULL);
+    //ustawilem dziecku ze blokuje ona sygnaly zapisane w mask, czyli jak przeddtem
     //? printf("Ustawilem dziecku maske\n");
     //addproc(addjob(child_pid, bg), child_pid, token)
 
@@ -103,25 +106,25 @@ static int do_job(token_t *token, int ntokens, bool bg)
   {
 
     //Jestem w rodzicu
-    printf("poczatek instrukcji rodzica\n");
+    //? printf("poczatek instrukcji rodzica\n");
     job_index = addjob(child_pid, bg);
     addproc(job_index, child_pid, token);
 
     while (true)
     {
       // ? printf("ble 7");
-      printf("Questioning jobstate\n");
+      //?printf("Questioning jobstate\n");
       int job_state = jobstate(job_index, &exitcode);
-      printf("Answering jobstate: %d\n", job_state);
+      //?printf("Answering jobstate: %d\n", job_state);
       if (job_state == FINISHED)
       {
-        printf("\njob has finished, przywracam maske\n");
-        Sigprocmask(SIG_SETMASK, &sigchld_mask, &mask);
+        //?printf("\njob has finished, przywracam maske\n");
+        Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
         break;
       }
       else
       {
-        printf("\njob has not yet finished, waiting.\n");
+        //?printf("\njob has not yet finished, waiting.\n");
         Sigsuspend(&mask);
       }
     }
