@@ -42,7 +42,7 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 
       i++;
     }
-
+    //cat lexer.c > nwm.txt
     else if (token[i] == T_OUTPUT)
     {
       *outputp = Open(token[i + 1], O_WRONLY, mode);
@@ -98,6 +98,8 @@ static int do_job(token_t *token, int ntokens, bool bg)
     //ustawilem dziecku ze blokuje ona sygnaly zapisane w mask, czyli jak przeddtem
     //? printf("Ustawilem dziecku maske\n");
     //addproc(addjob(child_pid, bg), child_pid, token)
+    dup2(output, STDOUT_FILENO);
+    dup2(input, STDIN_FILENO);
 
     external_command(token);
     //? printf("Wykonalem komende\n");

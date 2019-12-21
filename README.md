@@ -1,4 +1,10 @@
 # projekt Shell
+
 Pisany na zaliczenie projektu na przedmiot SO
 
-Maksymilian Czudziak
+## Testy do wykonania:
+
+- ls
+- cat lexer.c > nwm.txt
+
+##### Maksymilian Czudziak

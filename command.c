@@ -143,9 +143,14 @@ noreturn void external_command(char **argv)
 
       const char *const executable_name_copy = argv[0]; // kopiuje to co bylo w argumencie wykonania programu
       argv[0] = (char *)path_directory;                 // wkladamy do argumentu wskaznik na sciezke absolutna do pliku
-      (void)execve(argv[0], argv, environ);             // uruchamiam program z arguementu do programu
-      argv[0] = (char *)executable_name_copy;           // do argumentu wkladam to co bylo tam wczesniej
-      free(path_directory);                             // zwalniam miejsce zajmowane przez zmienna pomocnicza (czyszcząc jej zawartosc)
+
+      // dup2(outputp, STDIN_FILENO);
+      // dup2(in, fileno(stdin));
+
+      (void)execve(argv[0], argv, environ); // uruchamiam program z arguementu do programu
+
+      argv[0] = (char *)executable_name_copy; // do argumentu wkladam to co bylo tam wczesniej
+      free(path_directory);                   // zwalniam miejsce zajmowane przez zmienna pomocnicza (czyszcząc jej zawartosc)
 
       if (path_delimiter_position > 0) // jesli mi sie nie skonczyl path do ide dalej
       {
