@@ -241,10 +241,20 @@ int monitorjob(sigset_t *mask)
   int exitcode, state;
 
   // TODO: Following code requires use of Tcsetpgrp of tty_fd.
-  //Tcsetpgrp(tty_fd, getpgrp());
+  // Tcsetpgrp(tty_fd, getpgrp());
+  // tcsetpgrp - set terminal foreground process group
 
-  //Tcsetpgrp()
+  /*
+  The  function  tcsetpgrp() makes the process group with process group ID pgrp the foreground process group on the terminal associated to fd, which must be the controlling terminal of the calling
+       process, and still be associated with its session.  Moreover, pgrp must be a (nonempty) process group belonging to the same session as the calling process.
 
+  If tcsetpgrp() is called by a member of a background process group in its session, and the calling process is not blocking or ignoring SIGTTOU, a SIGTTOU signal is sent to all  members  of  this
+       background process group.
+  */
+
+  /*
+  tty_fd brzmi jak File Descriptor tego czym jest tty, a to chyba jest cos zwiazanego z dostepem do terminala aka terminal sterujacy?
+  */
   return exitcode;
 }
 

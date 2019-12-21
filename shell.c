@@ -98,8 +98,14 @@ static int do_job(token_t *token, int ntokens, bool bg)
     //ustawilem dziecku ze blokuje ona sygnaly zapisane w mask, czyli jak przeddtem
     //? printf("Ustawilem dziecku maske\n");
     //addproc(addjob(child_pid, bg), child_pid, token)
-    dup2(output, STDOUT_FILENO);
-    dup2(input, STDIN_FILENO);
+    if (input != -1)
+    {
+      Dup2(input, STDIN_FILENO);
+    }
+    if (output != -1)
+    {
+      Dup2(output, STDOUT_FILENO);
+    }
 
     external_command(token);
     //? printf("Wykonalem komende\n");
