@@ -31,12 +31,12 @@ static void sigchld_handler(int sig)
   // Zakonczyc job, ktorego wszystkie procesy sa finished
   // tworzac job tworzymy nowa grupe procesow.
   // SIGSTOP dostaje grupa procesow bedaca w foreground
+  pid = Waitpid(-1, &status, WNOHANG);
 
-  //
-
-  while (-1 != (pid = waitpid(-1, &status, WNOHANG)))
+  while (-1 != (pid = Waitpid(-1, &status, WNOHANG)))
   {
     safe_printf("SIEMA");
+    safe_printf(status);
     for (int i = 0; i < njobmax; i++)
     {
       for (int j = 0; j < jobs[i].nproc; j++)
@@ -211,6 +211,7 @@ int monitorjob(sigset_t *mask)
   int exitcode, state;
 
   // TODO: Following code requires use of Tcsetpgrp of tty_fd.
+  //Tcsetpgrp()
 
   return exitcode;
 }

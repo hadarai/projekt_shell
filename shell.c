@@ -5,24 +5,25 @@
 * 1. Moooooonitor job + SIGHILD handler
 * 2. DO JOB, background, foreground i "hill"?
 * Mozna wzorowac sie na tym sprzed tygodnia. 
-! Co to "terminal sterujacy"?
+? Co to "terminal sterujacy"?
+Coś w stylu tego gdzie teraz jest pisane, to co teraz otrzymuje komendy (i sygnaly?)
 */
 
 #define DEBUG 0
 #include "shell.h"
 
-sigset_t sigchld_mask;
+sigset_t sigchld_mask; //maska procesu dziecka.
+// * Maska procesu to taka "maska", w ktorej jest napisane, ktore sygnaly do danego procesu wysyłane są blokowane.
 
 static sigjmp_buf loop_env;
 
-static void sigint_handler(int sig)
+static void sigint_handler(int sig) // * To handler sygnalu: "Interrupt signal", czyli ctrl+C
 {
   siglongjmp(loop_env, sig);
 }
 
 // Consume all tokens related to redirection operators.
 // Put opened file descriptors into inputp & output respectively.
-
 static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 {
   token_t mode = NULL; // T_INPUT, T_OUTPUT or NULL
@@ -30,25 +31,24 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 
   for (int i = 0; i < ntokens; i++)
   {
-
     // TODO: Handle tokens and open files as requested.
     if (token[i] == T_INPUT)
     {
+      *inputp = Open(token[i + 1], O_RDONLY, mode);
+
       token[i] = T_NULL;
-
-      *outputp = open(token[i + 1], O_RDONLY);
-
       token[i + 1] = T_NULL;
+
       i++;
     }
 
     else if (token[i] == T_OUTPUT)
     {
-      token[i] = T_NULL;
-
-      *outputp = open(token[i + 1], O_WRONLY);
+      *outputp = Open(token[i + 1], O_WRONLY, mode);
 
       token[i + 1] = T_NULL;
+      token[i] = T_NULL;
+
       i++;
     }
     else
