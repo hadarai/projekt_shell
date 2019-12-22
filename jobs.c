@@ -27,7 +27,7 @@ static void sigchld_handler(int sig)
   pid_t pid;
   int status;
 
-  // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs.
+  // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs. DONE
   // Bury all children that finished, saving their status in jobs.
 
   // Zakonczyc job, ktorego wszystkie procesy sa finished
@@ -171,9 +171,10 @@ int jobstate(int j, int *statusp)
   job_t *job = &jobs[j];
   int state = job->state;
 
-  // TODO: Handle case where job has finished.
+  // TODO: Handle case where job has finished. DONE
   if (state == FINISHED)
   {
+    statusp = job->proc[0].exitcode;
     deljob(job);
   }
   // job decided to die
@@ -203,7 +204,7 @@ bool resumejob(int j, int bg, sigset_t *mask)
   if (j >= njobmax || jobs[j].state == FINISHED)
     return false;
 
-  // TODO: Continue stopped job. Possibly move job to foreground slot. */
+  // TODO: Continue stopped job. Possibly move job to foreground slot. DONE
 
   killpg(jobs[j].pgid, SIGCONT);
   jobs[j].state = RUNNING;
@@ -226,12 +227,10 @@ bool killjob(int j)
     return false;
   debug("[%d] killing '%s'\n", j, jobs[j].command);
 
-  // TODO: I love the smell of napalm in the morning. */
+  // TODO: I love the smell of napalm in the morning. DONE
   // somebody decided that job should die
-  for (int i = 0; i < jobs[j].nproc; i++)
-  {
-    kill(jobs[j].proc[i].pid, SIGTERM);
-  }
+  kill(jobs[j].pgid, SIGTERM);
+
   return true;
 }
 
@@ -245,7 +244,7 @@ void watchjobs(int which)
     if (jobs[j].pgid == 0)
       continue;
 
-    // TODO: Report job number, state, command and exit code or signal.
+    // TODO: Report job number, state, command and exit code or signal. DONE
 
     //printf("sprawdzam finish");
     if ((which == FINISHED || which == ALL) && jobs[j].state == FINISHED)
@@ -288,7 +287,7 @@ int monitorjob(sigset_t *mask)
 {
   int exitcode, state;
 
-  // TODO: Following code requires use of Tcsetpgrp of tty_fd.
+  // TODO: Following code requires use of Tcsetpgrp of tty_fd. DONE
 
   Tcsetpgrp(tty_fd, jobs[0].pgid);
 
@@ -332,7 +331,7 @@ void shutdownjobs(void)
   sigset_t mask;
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
-  // TODO: Kill remaining jobs and wait for them to finish. */
+  // TODO: Kill remaining jobs and wait for them to finish. DONE
 
   for (int j = BG; j < njobmax; j++)
   {

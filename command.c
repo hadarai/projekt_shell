@@ -128,7 +128,7 @@ noreturn void external_command(char **argv)
 
   if (!index(argv[0], '/') && path)
   {
-    // TODO: For all paths in PATH construct an absolute path and execve it.
+    // TODO: For all paths in PATH construct an absolute path and execve it. DONE
     const char *const path_end = path + strlen(path); // dlugosc calosci
     size_t path_delimiter_position = -1;              // zmienna na pozycje dwukropka
 

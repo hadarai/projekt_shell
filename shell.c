@@ -31,8 +31,8 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 
   for (int i = 0; i < ntokens; i++)
   {
-    // TODO: Handle tokens and open files as requested.
-    // ? DONE
+    // TODO: Handle tokens and open files as requested. DONE
+
     if (token[i] == T_INPUT)
     {
       *inputp = Open(token[i + 1], O_RDONLY, mode);
@@ -78,8 +78,7 @@ static int do_job(token_t *token, int ntokens, bool bg)
   //ustawia, ze sygnaly napisane w sigchld beda blokowane. stara maska jest w mask
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
-  // TODO: Start a subprocess, create a job and monitor it.
-  // ? printf("Liczba tokenow = %d \n", ntokens);
+  // TODO: Start a subprocess, create a job and monitor it. DONE
 
   pid_t child_pid = Fork();
   // ? printf("Zrobilem fork %d\n", child_pid);
