@@ -90,11 +90,13 @@ static int do_job(token_t *token, int ntokens, bool bg)
     // Jestem w dziecku
     // ?printf("poczatek instrukcji dziecka\n");
     Setpgid(0, 0);
+    Signal(SIGTSTP, SIG_DFL);
     // * Z dokumentacji:
     // If pid is zero, then the process ID of the calling process is used.
     // If pgid is zero, then the PGID of the process specified by pid is made the same as its process ID.
     // ?printf("Ustawilem dziecku pgid\n");
     Sigprocmask(SIG_SETMASK, &mask, NULL);
+
     //ustawilem dziecku ze blokuje ona sygnaly zapisane w mask, czyli jak przeddtem
     //? printf("Ustawilem dziecku maske\n");
     //addproc(addjob(child_pid, bg), child_pid, token)
@@ -112,12 +114,16 @@ static int do_job(token_t *token, int ntokens, bool bg)
   }
   else
   {
-
     //Jestem w rodzicu
     //? printf("poczatek instrukcji rodzica\n");
     job_index = addjob(child_pid, bg);
     addproc(job_index, child_pid, token);
 
+    if (bg == FG)
+    {
+      monitorjob(&mask);
+    }
+    /*
     while (true)
     {
       // ? printf("ble 7");
@@ -136,6 +142,7 @@ static int do_job(token_t *token, int ntokens, bool bg)
         Sigsuspend(&mask);
       }
     }
+    */
   }
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
