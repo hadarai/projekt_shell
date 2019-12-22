@@ -201,59 +201,71 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
     if (token[i] == T_PIPE)
       number_of_segments++;
   }
-  //printf("Liczba segmentow: %d\n", number_of_segments);
-  //printf("Liczba tokenow: %d\n", ntokens);
+  // printf("Liczba segmentow: %d\n", number_of_segments);
+  // printf("Liczba tokenow: %d\n", ntokens);
 
-  int stage_length = 0, now = 0;
-  for (int i = 0; i < ntokens; i++)
+  int stage_length = 0;
+
+  int now = ntokens - 1;
+
+  for (int i = ntokens - 1; i > 0; i--)
   {
     if (token[i] == T_PIPE)
       break;
     stage_length++;
   }
+  // printf("pierwszy seg length: %d\n", stage_length);
 
-  //print pierwszy stage
-  //addproc() do_stage(pgid, mask, );
+  //print pierwszy stage - OSTATNI el. pipe'u
 
-  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-  mkpipe(&next_input, &output);
+  // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+  // mkpipe(&next_input, &output);
 
-  now = now + stage_length + 1;
+  // now = now + stage_length + 1;
+  now = ntokens - stage_length;
+  // printf("\n wypisuje od: %d\n", now);
 
-  // for (int i = 0; i < stage_length; i++)
-  // {
-  //   printf("%s ", token[i]);
-  // }
-  // printf("\n");
-  //print stage'y od drugiego do przedostatniego
-  for (size_t i = 1; i < number_of_segments - 1; i++)
+  for (int i = now; i < ntokens; i++)
   {
+    printf("%s ", token[i]);
+  }
+
+  printf("\n");
+  //now = now - 2;
+  //print stage'y od przedostatniego do pierwszego
+  for (size_t i = number_of_segments - 1; i > 1; i--)
+  {
+    now = now - stage_length;
     stage_length = 0;
-    for (int j = now; j < ntokens; j++)
+
+    //printf("teraz: %d\n", now);
+    // printf("\nzacznynam: %d\n", now);
+    for (int j = now; j > 0; j--)
     {
       if (token[j] == T_PIPE)
         break;
       stage_length++;
     }
-    input = next_input;
-    pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-    mkpipe(&next_input, &output);
-    //printf("Teraz segment zaczuyna sie na i ma: %d %d \n", stage_length, now);
+    // input = next_input;
+    // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+    // mkpipe(&next_input, &output);
 
-    // for (int j = now; j < stage_length + now; j++)
-    // {
-    //   printf("%s ", token[j]);
-    // }
-    // printf("\n");
-    now = now + stage_length + 1;
+    //printf("Teraz segment zaczuyna sie na i ma: %d %d \n", stage_length, now);
+    now = now - stage_length + 1;
+    // printf("teraz: %d\n", now);
+    // printf(" seg length: %d\n", stage_length);
+    for (int j = now; j < stage_length + now; j++)
+    {
+      printf("%s ", token[j]);
+    }
+    printf("\n");
+
+    //now = now + stage_length;
   }
   // ostatni stage
-  input = next_input;
-  output = -1;
-  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-  //mkpipe(&next_input, &output);
 
-  //printf("\n ostatni stage: %d\n", now);
+  // mkpipe(&next_input, &output);
+
   // for (size_t i = now; i < ntokens; i++)
   // {
   //   printf("%s", token[i]);
@@ -261,20 +273,26 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
   // printf("\n");
 
   // stage_length = 0;
-  // for (int j = now; j < (ntokens - now); j++)
-  // {
-  //   if (token[j] == T_PIPE)
-  //     break;
-  //   stage_length++;
-  // }
 
-  // //print ostatni stage
-  // for (int j = now; j < stage_length; j++)
-  // {
-  //   printf("%s ", token[j]);
-  // }
-  // printf("\n");
-  // now = now + stage_length + 1;
+  stage_length = 0;
+  for (int j = 0; j < now; j++)
+  {
+    if (token[j] == T_PIPE)
+      break;
+    stage_length++;
+  }
+  now = now - stage_length + 1;
+  printf("\n ostatni stage: %d\n", now);
+  // input = next_input;
+  // output = -1;
+  // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+
+  //print ostatni stage
+  for (int j = 0; j < now; j++)
+  {
+    printf("%s ", token[j]);
+  }
+  printf("\n");
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
   return exitcode;
