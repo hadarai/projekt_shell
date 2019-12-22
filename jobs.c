@@ -252,14 +252,14 @@ void watchjobs(int which)
     {
       printf("[%d]+  ", j);
       printf("FINISHED              ");
-      printf("%s\n", jobs[j].command);
+      printf("%s", jobs[j].command);
       if (WIFEXITED(jobs[j].proc[0].exitcode))
       {
-        printf("Job exitcode: %d\n", WEXITSTATUS(jobs[j].proc[0].exitcode));
+        printf("        exitcode: %d\n", WEXITSTATUS(jobs[j].proc[0].exitcode));
       }
       else // signaled
       {
-        printf("Job signal: %d\n", WTERMSIG(jobs[j].proc[0].exitcode));
+        printf("        signal: %d\n", WTERMSIG(jobs[j].proc[0].exitcode));
       }
       deljob(&jobs[j]);
     }
@@ -324,8 +324,6 @@ void initjobs(void)
   // Duplicate terminal fd, but do not leak it to subprocesses that execve. */
   assert(isatty(STDIN_FILENO));
   tty_fd = Dup(STDIN_FILENO);
-  //fcntl(tty_fd, F_SETFL, O_CLOEXEC); ROBOCZO
-  //Tcsetpgrp(tty_fd, getpgrp()); ROBOCZO
 }
 
 /* Called just before the shell finishes. */
@@ -338,9 +336,17 @@ void shutdownjobs(void)
 
   for (int j = BG; j < njobmax; j++)
   {
-    if (jobs[j].pgid == 0)
+    int jobs_pgid = jobs[j].pgid;
+    if (jobs_pgid == 0)
       continue;
-    killjob(j);
+    else
+    {
+      killjob(j);
+      if (jobs[j].state != FINISHED)
+      {
+        Sigsuspend(&mask);
+      }
+    }
   }
 
   watchjobs(FINISHED);
