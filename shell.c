@@ -88,18 +88,15 @@ static int do_job(token_t *token, int ntokens, bool bg)
   if (child_pid == 0)
   {
     // Jestem w dziecku
+    Sigprocmask(SIG_SETMASK, &mask, NULL);
     // ?printf("poczatek instrukcji dziecka\n");
     Setpgid(0, 0);
-    Signal(SIGTSTP, SIG_DFL);
+
     // * Z dokumentacji:
     // If pid is zero, then the process ID of the calling process is used.
     // If pgid is zero, then the PGID of the process specified by pid is made the same as its process ID.
-    // ?printf("Ustawilem dziecku pgid\n");
-    Sigprocmask(SIG_SETMASK, &mask, NULL);
+    Signal(SIGTSTP, SIG_DFL);
 
-    //ustawilem dziecku ze blokuje ona sygnaly zapisane w mask, czyli jak przeddtem
-    //? printf("Ustawilem dziecku maske\n");
-    //addproc(addjob(child_pid, bg), child_pid, token)
     if (input != -1)
     {
       Dup2(input, STDIN_FILENO);
@@ -118,33 +115,13 @@ static int do_job(token_t *token, int ntokens, bool bg)
     //? printf("poczatek instrukcji rodzica\n");
     job_index = addjob(child_pid, bg);
     addproc(job_index, child_pid, token);
+    //Sigprocmask(SIG_SETMASK, &mask, NULL);
 
     if (bg == FG)
     {
       monitorjob(&mask);
     }
-    /*
-    while (true)
-    {
-      // ? printf("ble 7");
-      //?printf("Questioning jobstate\n");
-      int job_state = jobstate(job_index, &exitcode);
-      //?printf("Answering jobstate: %d\n", job_state);
-      if (job_state == FINISHED)
-      {
-        //?printf("\njob has finished, przywracam maske\n");
-        Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
-        break;
-      }
-      else
-      {
-        //?printf("\njob has not yet finished, waiting.\n");
-        Sigsuspend(&mask);
-      }
-    }
-    */
   }
-
   Sigprocmask(SIG_SETMASK, &mask, NULL);
   return exitcode;
 }

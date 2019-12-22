@@ -37,7 +37,7 @@ static void sigchld_handler(int sig)
 
   while (0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED))) //pid = pid dziecka, ktore skonczylo
   {
-    safe_printf("Status dziecka: %d\n", status);
+    // safe_printf("Status dziecka: %d\n", status);
     for (int i = 0; i < njobmax; i++)
     {
       // safe_printf("pgid: %d\n", jobs[i].pgid);
@@ -60,23 +60,22 @@ static void sigchld_handler(int sig)
           //? safe_printf("siema2");
           if (pid == jobs[i].proc->pid)
           {
+            safe_printf("znalazlem pid %d\n", pid);
             //? safe_printf("ifuje", status);
-            if (WIFEXITED(status)) //jesli jakikolwiek proces sie skonczyl to job sie skonczyl, nie dziala dla pipe'ow
+            if (WIFEXITED(status) || WIFSIGNALED(status)) //jesli jakikolwiek proces sie skonczyl to job sie skonczyl, nie dziala dla pipe'ow
             {
-
               jobs[i].state = FINISHED;
               jobs[i].proc[j].exitcode = status;
             }
             if (WIFSTOPPED(status))
             {
+              safe_printf("stopped");
               jobs[i].state = STOPPED;
             }
             if (WIFCONTINUED(status))
             {
               jobs[i].state = RUNNING;
             }
-
-            //? safe_printf("%d\n", pid);
           }
         }
       }
@@ -243,30 +242,38 @@ void watchjobs(int which)
       continue;
 
     // TODO: Report job number, state, command and exit code or signal.
-    if (which == FINISHED && jobs[j].state == FINISHED)
+
+    printf("sprawdzam finish");
+    if ((which == FINISHED || which == ALL) && jobs[j].state == FINISHED)
     {
-      printf("Job number: %d \n", j);
-      //printf("Job state: %d\n", jobs[j].state);
-      printf("Job command: %s\n", jobs[j].command);
-      //printf("Job exitcode: %s\n", jobs[j].proc[0].exitcode);
+      printf("[%d]+  ", j);
+      printf("FINISHED              ");
+      printf("%s\n", jobs[j].command);
+      if (WIFEXITED(jobs[j].proc[0].exitcode))
+      {
+        printf("Job exitcode: %d\n", WEXITSTATUS(jobs[j].proc[0].exitcode));
+      }
+      else //signaled
+      {
+        printf("Job signal: %d\n", WTERMSIG(jobs[j].proc[0].exitcode));
+      }
+      deljob(&jobs[j]);
     }
-    else if (which == RUNNING && jobs[j].state == RUNNING)
+    printf("sprawdzam run");
+    if ((which == RUNNING || which == ALL) && jobs[j].state == RUNNING)
     {
-      printf("Job number: %d \n", j);
+      printf("[%d]+  ", j);
+      printf("RUNNING               ");
       //printf("Job state: %d\n", jobs[j].state);
-      printf("Job command: %s\n", jobs[j].command);
+      printf("%s\n", jobs[j].command);
     }
-    else if (which == STOPPED && jobs[j].state == STOPPED)
+    printf("sprawdzam stop\n");
+    if ((which == STOPPED || which == ALL) && jobs[j].state == STOPPED)
     {
-      printf("Job number: %d \n", j);
+      printf("[%d]+  ", j);
+      printf("STOPPED               ");
       //printf("Job state: %d\n", jobs[j].state);
-      printf("Job command: %s\n", jobs[j].command);
-    }
-    else if (which == ALL)
-    {
-      printf("Job number: %d \n", j);
-      //printf("Job state: %d\n", jobs[j].state);
-      printf("Job command: %s\n", jobs[j].command);
+      printf("%s\n", jobs[j].command);
     }
   }
 }
@@ -283,37 +290,20 @@ int monitorjob(sigset_t *mask)
 
   while (true)
   {
-    // ? printf("ble 7");
-    //?printf("Questioning jobstate\n");
     int job_state = jobstate(0, &exitcode);
-    //?printf("Answering jobstate: %d\n", job_state);
-    if (job_state == FINISHED || job_state == STOPPED)
+    if (job_state != RUNNING)
     {
-      //?printf("\njob has finished, przywracam maske\n");
-      Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
+      // Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
       break;
     }
-    else
-    {
-      //?printf("\njob has not yet finished, waiting.\n");
-      Sigsuspend(mask);
-    }
+    Sigsuspend(mask);
   }
+  // ? printf("ble 7");
+  //?printf("Questioning jobstate\n");
+  //?printf("Answering jobstate: %d\n", job_state);
 
   Tcsetpgrp(tty_fd, getpgrp());
-  // tcsetpgrp - set terminal foreground process group
 
-  /*
-  The  function  tcsetpgrp() makes the process group with process group ID pgrp the foreground process group on the terminal associated to fd, which must be the controlling terminal of the calling
-       process, and still be associated with its session.  Moreover, pgrp must be a (nonempty) process group belonging to the same session as the calling process.
-
-  If tcsetpgrp() is called by a member of a background process group in its session, and the calling process is not blocking or ignoring SIGTTOU, a SIGTTOU signal is sent to all  members  of  this
-       background process group.
-  */
-
-  /*
-  tty_fd brzmi jak File Descriptor tego czym jest tty, a to chyba jest cos zwiazanego z dostepem do terminala aka terminal sterujacy?
-  */
   return exitcode;
 }
 
