@@ -44,11 +44,6 @@ static void sigchld_handler(int sig)
       // safe_printf("nproc: %d\n", jobs[i].nproc);
       // safe_printf("state: %d\n", jobs[i].state);
 
-      // if (jobs[i].nproc != 0)
-      // {
-      //   safe_printf("proc[pid]: %d\n", jobs[i].proc->pid);
-      //   safe_printf("proc[state]: %d\n", jobs[i].proc->state);
-      // }
       if (jobs[i].nproc == 0)
       {
         jobs[i].state = FINISHED;
@@ -236,8 +231,10 @@ bool killjob(int j)
 /* Report state of requested background jobs. Clean up finished jobs. */
 void watchjobs(int which)
 {
+  printf("watchjob\n");
   for (int j = BG; j < njobmax; j++)
   {
+    printf("sprawdzam po kolei %d\n", j);
     if (jobs[j].pgid == 0)
       continue;
 
@@ -298,6 +295,9 @@ int monitorjob(sigset_t *mask)
     }
     Sigsuspend(mask);
   }
+  int candidate = allocjob();
+  jobs[candidate].pgid = 0;
+  movejob(FG, candidate);
   // ? printf("ble 7");
   //?printf("Questioning jobstate\n");
   //?printf("Answering jobstate: %d\n", job_state);
