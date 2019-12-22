@@ -55,7 +55,7 @@ static void sigchld_handler(int sig)
           //? safe_printf("siema2");
           if (pid == jobs[i].proc->pid)
           {
-            safe_printf("znalazlem pid %d\n", pid);
+            // safe_printf("znalazlem pid %d\n", pid);
             //? safe_printf("ifuje", status);
             if (WIFEXITED(status) || WIFSIGNALED(status)) //jesli jakikolwiek proces sie skonczyl to job sie skonczyl, nie dziala dla pipe'ow
             {
@@ -64,7 +64,7 @@ static void sigchld_handler(int sig)
             }
             if (WIFSTOPPED(status))
             {
-              safe_printf("stopped");
+              //safe_printf("stopped");
               jobs[i].state = STOPPED;
             }
             if (WIFCONTINUED(status))
@@ -191,7 +191,7 @@ char *jobcmd(int j)
 }
 
 /* Continues a job that has been stopped. If move to foreground was requested,
- * then move the job to foreground and start monitoring it. */
+   then move the job to foreground and start monitoring it. */
 bool resumejob(int j, int bg, sigset_t *mask)
 {
   if (j < 0)
@@ -205,6 +205,14 @@ bool resumejob(int j, int bg, sigset_t *mask)
 
   // TODO: Continue stopped job. Possibly move job to foreground slot. */
 
+  killpg(jobs[j].pgid, SIGCONT);
+  jobs[j].state = RUNNING;
+
+  if (bg == FG)
+  {
+    movejob(j, 0);
+    monitorjob(mask);
+  }
   // zadanie polega na tym, że
   // trzeba będzie użyć killpg i tam sygnał "typu" SIGCONT
   // potem jeszcze cos sprawdzamy
@@ -224,23 +232,22 @@ bool killjob(int j)
   {
     kill(jobs[j].proc[i].pid, SIGTERM);
   }
-
   return true;
 }
 
 /* Report state of requested background jobs. Clean up finished jobs. */
 void watchjobs(int which)
 {
-  printf("watchjob\n");
+  //printf("watchjob\n");
   for (int j = BG; j < njobmax; j++)
   {
-    printf("sprawdzam po kolei %d\n", j);
+    //printf("sprawdzam po kolei %d\n", j);
     if (jobs[j].pgid == 0)
       continue;
 
     // TODO: Report job number, state, command and exit code or signal.
 
-    printf("sprawdzam finish");
+    //printf("sprawdzam finish");
     if ((which == FINISHED || which == ALL) && jobs[j].state == FINISHED)
     {
       printf("[%d]+  ", j);
@@ -250,13 +257,13 @@ void watchjobs(int which)
       {
         printf("Job exitcode: %d\n", WEXITSTATUS(jobs[j].proc[0].exitcode));
       }
-      else //signaled
+      else // signaled
       {
         printf("Job signal: %d\n", WTERMSIG(jobs[j].proc[0].exitcode));
       }
       deljob(&jobs[j]);
     }
-    printf("sprawdzam run");
+    //printf("sprawdzam run");
     if ((which == RUNNING || which == ALL) && jobs[j].state == RUNNING)
     {
       printf("[%d]+  ", j);
@@ -264,7 +271,7 @@ void watchjobs(int which)
       //printf("Job state: %d\n", jobs[j].state);
       printf("%s\n", jobs[j].command);
     }
-    printf("sprawdzam stop\n");
+    //printf("sprawdzam stop\n");
     if ((which == STOPPED || which == ALL) && jobs[j].state == STOPPED)
     {
       printf("[%d]+  ", j);
