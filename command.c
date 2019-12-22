@@ -132,10 +132,8 @@ noreturn void external_command(char **argv)
     const char *const path_end = path + strlen(path); // dlugosc calosci
     size_t path_delimiter_position = -1;              // zmienna na pozycje dwukropka
 
-    // strcspn - get length of prefix substring
     while (path < path_end && (path_delimiter_position = strcspn(path, ":")) > 0) //dopoki nie skonczyla mi sie sciezka i path_delimiter_position = dlugosc od początku do pozycji dwukropka (kolejnego)
     {
-      // char *strndup(const char *s, size_t n);
       char *path_directory = strndup(path, path_delimiter_position); // path_directory = kopia stringa path od 0 do path_delimiter_position
 
       strapp(&path_directory, "/");     // doklejam "/" na koniec zmiennej ze sciezka
@@ -143,9 +141,6 @@ noreturn void external_command(char **argv)
 
       const char *const executable_name_copy = argv[0]; // kopiuje to co bylo w argumencie wykonania programu
       argv[0] = (char *)path_directory;                 // wkladamy do argumentu wskaznik na sciezke absolutna do pliku
-
-      // dup2(outputp, STDIN_FILENO);
-      // dup2(in, fileno(stdin));
 
       (void)execve(argv[0], argv, environ); // uruchamiam program z arguementu do programu
 

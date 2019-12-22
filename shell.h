@@ -12,7 +12,6 @@
 #endif
 
 typedef char *token_t;
-// token_t to char* - wskaznik na chara, wiec token_t to tablica charow
 
 #define T_NULL ((token_t)0)
 #define T_AND ((token_t)1)

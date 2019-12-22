@@ -20,7 +20,6 @@ static job_t *jobs = NULL; /* array of all jobs */
 static int njobmax = 1;    /* number of slots in jobs array */
 static int tty_fd = -1;    /* controlling terminal file descriptor */
 
-// Odpala sie u rodzica gdy dziecko skonczy prace!
 static void sigchld_handler(int sig)
 {
   int old_errno = errno;
@@ -30,18 +29,10 @@ static void sigchld_handler(int sig)
   // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs. DONE
   // Bury all children that finished, saving their status in jobs.
 
-  // Zakonczyc job, ktorego wszystkie procesy sa finished
-  // tworzac job tworzymy nowa grupe procesow.
-  // SIGSTOP dostaje grupa procesow bedaca w foreground
-
-  while (0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED))) //pid = pid dziecka, ktore skonczylo
+  while (0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED)))
   {
-    // safe_printf("Status dziecka: %d\n", status);
     for (int i = 0; i < njobmax; i++)
     {
-      // safe_printf("pgid: %d\n", jobs[i].pgid);
-      // safe_printf("nproc: %d\n", jobs[i].nproc);
-      // safe_printf("state: %d\n", jobs[i].state);
 
       if (jobs[i].nproc == 0)
       {
@@ -51,19 +42,15 @@ static void sigchld_handler(int sig)
       {
         for (int j = 0; j < jobs[i].nproc; j++)
         {
-          //? safe_printf("siema2");
           if (pid == jobs[i].proc->pid)
           {
-            // safe_printf("znalazlem pid %d\n", pid);
-            //? safe_printf("ifuje", status);
-            if (WIFEXITED(status) || WIFSIGNALED(status)) //jesli jakikolwiek proces sie skonczyl to job sie skonczyl, nie dziala dla pipe'ow
+            if (WIFEXITED(status) || WIFSIGNALED(status))
             {
               jobs[i].state = FINISHED;
               jobs[i].proc[j].exitcode = status;
             }
             if (WIFSTOPPED(status))
             {
-              //safe_printf("stopped");
               jobs[i].state = STOPPED;
             }
             if (WIFCONTINUED(status))
@@ -176,8 +163,6 @@ int jobstate(int j, int *statusp)
     statusp = job->proc[0].exitcode;
     deljob(job);
   }
-  // job decided to die
-  // ? printf("DUPA: %d\n", state);
 
   return state;
 }
@@ -213,9 +198,6 @@ bool resumejob(int j, int bg, sigset_t *mask)
     movejob(j, 0);
     monitorjob(mask);
   }
-  // zadanie polega na tym, że
-  // trzeba będzie użyć killpg i tam sygnał "typu" SIGCONT
-  // potem jeszcze cos sprawdzamy
   return true;
 }
 
@@ -227,7 +209,6 @@ bool killjob(int j)
   debug("[%d] killing '%s'\n", j, jobs[j].command);
 
   // TODO: I love the smell of napalm in the morning. DONE
-  // somebody decided that job should die
   kill(jobs[j].pgid, SIGTERM);
 
   return true;
@@ -236,16 +217,13 @@ bool killjob(int j)
 /* Report state of requested background jobs. Clean up finished jobs. */
 void watchjobs(int which)
 {
-  //printf("watchjob\n");
   for (int j = BG; j < njobmax; j++)
   {
-    //printf("sprawdzam po kolei %d\n", j);
     if (jobs[j].pgid == 0)
       continue;
 
     // TODO: Report job number, state, command and exit code or signal. DONE
 
-    //printf("sprawdzam finish");
     if ((which == FINISHED || which == ALL) && jobs[j].state == FINISHED)
     {
       printf("[%d]+  ", j);
@@ -261,20 +239,16 @@ void watchjobs(int which)
       }
       deljob(&jobs[j]);
     }
-    //printf("sprawdzam run");
     if ((which == RUNNING || which == ALL) && jobs[j].state == RUNNING)
     {
       printf("[%d]+  ", j);
       printf("RUNNING               ");
-      //printf("Job state: %d\n", jobs[j].state);
       printf("%s\n", jobs[j].command);
     }
-    //printf("sprawdzam stop\n");
     if ((which == STOPPED || which == ALL) && jobs[j].state == STOPPED)
     {
       printf("[%d]+  ", j);
       printf("STOPPED               ");
-      //printf("Job state: %d\n", jobs[j].state);
       printf("%s\n", jobs[j].command);
     }
   }
@@ -295,7 +269,6 @@ int monitorjob(sigset_t *mask)
     int job_state = jobstate(0, &exitcode);
     if (job_state != RUNNING)
     {
-      // Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
       break;
     }
     Sigsuspend(mask);
@@ -303,9 +276,6 @@ int monitorjob(sigset_t *mask)
   int candidate = allocjob();
   jobs[candidate].pgid = 0;
   movejob(FG, candidate);
-  // ? printf("ble 7");
-  //?printf("Questioning jobstate\n");
-  //?printf("Answering jobstate: %d\n", job_state);
 
   Tcsetpgrp(tty_fd, getpgrp());
 
