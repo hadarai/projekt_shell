@@ -81,7 +81,6 @@ static int do_job(token_t *token, int ntokens, bool bg)
   // TODO: Start a subprocess, create a job and monitor it. DONE
 
   pid_t child_pid = Fork();
-  // ? printf("Zrobilem fork %d\n", child_pid);
   size_t job_index;
 
   if (child_pid == 0)
@@ -126,7 +125,7 @@ static int do_job(token_t *token, int ntokens, bool bg)
 }
 
 /* Start internal or external command in a subprocess that belongs to pipeline.
- * All subprocesses in pipeline must belong to the same process group. */
+   All subprocesses in pipeline must belong to the same process group. */
 static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
                       token_t *token, int ntokens)
 {
@@ -134,7 +133,40 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
 
   // TODO: Start a subprocess and make sure it's moved to a process group.
 
-  //return pid;
+  pid_t child_pid = Fork();
+  size_t job_index;
+
+  if (child_pid == 0)
+  {
+    // Jestem w dziecku
+    Sigprocmask(SIG_SETMASK, &mask, NULL);
+    Setpgid(0, pgid);
+    Signal(SIGTSTP, SIG_DFL); //przywrocenie domyslnego zachowania dla procesu
+    if (input != -1)
+    {
+      Dup2(input, STDIN_FILENO);
+    }
+    if (output != -1)
+    {
+      Dup2(output, STDOUT_FILENO);
+    }
+    token[ntokens] = T_NULL; //bo chce by uruchomil mi tokeny od tam gdzie zaczyna sie *token do token[ntokens]
+    external_command(token);
+  }
+  else
+  {
+    //job_index = addjob(pgid, );
+    //addproc(job_index?, pgid, token);
+
+    /*
+    if (bg == FG)
+    {
+      monitorjob(&mask);
+    }
+    */
+  }
+
+  return child_pid;
 }
 
 static void mkpipe(int *readp, int *writep)
@@ -162,6 +194,87 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
 
   // TODO: Start pipeline subprocesses, create a job and monitor it.
   // Remember to close unused pipe ends!
+
+  int number_of_segments = 1;
+  for (int i = 0; i < ntokens; i++)
+  {
+    if (token[i] == T_PIPE)
+      number_of_segments++;
+  }
+  //printf("Liczba segmentow: %d\n", number_of_segments);
+  //printf("Liczba tokenow: %d\n", ntokens);
+
+  int stage_length = 0, now = 0;
+  for (int i = 0; i < ntokens; i++)
+  {
+    if (token[i] == T_PIPE)
+      break;
+    stage_length++;
+  }
+
+  //print pierwszy stage
+  //addproc() do_stage(pgid, mask, );
+
+  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+  mkpipe(&next_input, &output);
+
+  now = now + stage_length + 1;
+
+  // for (int i = 0; i < stage_length; i++)
+  // {
+  //   printf("%s ", token[i]);
+  // }
+  // printf("\n");
+  //print stage'y od drugiego do przedostatniego
+  for (size_t i = 1; i < number_of_segments - 1; i++)
+  {
+    stage_length = 0;
+    for (int j = now; j < ntokens; j++)
+    {
+      if (token[j] == T_PIPE)
+        break;
+      stage_length++;
+    }
+    input = next_input;
+    pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+    mkpipe(&next_input, &output);
+    //printf("Teraz segment zaczuyna sie na i ma: %d %d \n", stage_length, now);
+
+    // for (int j = now; j < stage_length + now; j++)
+    // {
+    //   printf("%s ", token[j]);
+    // }
+    // printf("\n");
+    now = now + stage_length + 1;
+  }
+  // ostatni stage
+  input = next_input;
+  output = -1;
+  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+  //mkpipe(&next_input, &output);
+
+  //printf("\n ostatni stage: %d\n", now);
+  // for (size_t i = now; i < ntokens; i++)
+  // {
+  //   printf("%s", token[i]);
+  // }
+  // printf("\n");
+
+  // stage_length = 0;
+  // for (int j = now; j < (ntokens - now); j++)
+  // {
+  //   if (token[j] == T_PIPE)
+  //     break;
+  //   stage_length++;
+  // }
+
+  // //print ostatni stage
+  // for (int j = now; j < stage_length; j++)
+  // {
+  //   printf("%s ", token[j]);
+  // }
+  // printf("\n");
+  // now = now + stage_length + 1;
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
   return exitcode;
