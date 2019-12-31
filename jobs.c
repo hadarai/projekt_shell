@@ -9,39 +9,31 @@ typedef struct proc
 
 typedef struct job
 {
-  pid_t pgid;    /* 0 if slot is free */
-  proc_t *proc;  /* array of processes running in as a job */
-  int nproc;     /* number of processes */
-  int state;     /* changes when live processes have same state */
-  char *command; /* textual representation of command line */
+  pid_t pgid;            /* 0 if slot is free */
+  proc_t *proc;          /* array of processes running in as a job */
+  struct termios tmodes; /* saved terminal modes */
+  int nproc;             /* number of processes */
+  int state;             /* changes when live processes have same state */
+  char *command;         /* textual representation of command line */
 } job_t;
 
-static job_t *jobs = NULL; /* array of all jobs */
-static int njobmax = 1;    /* number of slots in jobs array */
-static int tty_fd = -1;    /* controlling terminal file descriptor */
+static job_t *jobs = NULL;          /* array of all jobs */
+static int njobmax = 1;             /* number of slots in jobs array */
+static int tty_fd = -1;             /* controlling terminal file descriptor */
+static struct termios shell_tmodes; /* saved shell terminal modes */
 
-// Odpala sie u rodzica gdy dziecko skonczy prace!
 static void sigchld_handler(int sig)
 {
   int old_errno = errno;
   pid_t pid;
   int status;
+  // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs.
+  // Bury all children that finished saving their status in jobs.* /
 
-  // TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs. DONE
-  // Bury all children that finished, saving their status in jobs.
-
-  // Zakonczyc job, ktorego wszystkie procesy sa finished
-  // tworzac job tworzymy nowa grupe procesow.
-  // SIGSTOP dostaje grupa procesow bedaca w foreground
-
-  while (0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED))) //pid = pid dziecka, ktore skonczylo
+  while (0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED)))
   {
-    // safe_printf("Status dziecka: %d\n", status);
     for (int i = 0; i < njobmax; i++)
     {
-      // safe_printf("pgid: %d\n", jobs[i].pgid);
-      // safe_printf("nproc: %d\n", jobs[i].nproc);
-      // safe_printf("state: %d\n", jobs[i].state);
 
       if (jobs[i].nproc == 0)
       {
@@ -51,19 +43,15 @@ static void sigchld_handler(int sig)
       {
         for (int j = 0; j < jobs[i].nproc; j++)
         {
-          //? safe_printf("siema2");
           if (pid == jobs[i].proc->pid)
           {
-            // safe_printf("znalazlem pid %d\n", pid);
-            //? safe_printf("ifuje", status);
-            if (WIFEXITED(status) || WIFSIGNALED(status)) //jesli jakikolwiek proces sie skonczyl to job sie skonczyl, nie dziala dla pipe'ow
+            if (WIFEXITED(status) || WIFSIGNALED(status))
             {
               jobs[i].state = FINISHED;
               jobs[i].proc[j].exitcode = status;
             }
             if (WIFSTOPPED(status))
             {
-              //safe_printf("stopped");
               jobs[i].state = STOPPED;
             }
             if (WIFCONTINUED(status))
@@ -94,6 +82,7 @@ static int allocjob(void)
 
   /* If none found, allocate new one. */
   jobs = realloc(jobs, sizeof(job_t) * (njobmax + 1));
+  memset(&jobs[njobmax], 0, sizeof(job_t));
   return njobmax++;
 }
 
@@ -104,7 +93,6 @@ static int allocproc(int j)
   return job->nproc++;
 }
 
-// Adds info about new job to array
 int addjob(pid_t pgid, int bg)
 {
   int j = bg ? allocjob() : FG;
@@ -115,6 +103,7 @@ int addjob(pid_t pgid, int bg)
   job->command = NULL;
   job->proc = NULL;
   job->nproc = 0;
+  job->tmodes = shell_tmodes;
   return j;
 }
 
@@ -162,27 +151,25 @@ void addproc(int j, pid_t pid, char **argv)
   mkcommand(&job->command, argv);
 }
 
-// * Returns job's state.
-// * If it's finished, delete it and return exitcode through statusp.
+/* Returns job's state.
+ * If it's finished, delete it and return exitcode through statusp. */
 int jobstate(int j, int *statusp)
 {
   assert(j < njobmax);
   job_t *job = &jobs[j];
   int state = job->state;
 
-  // TODO: Handle case where job has finished. DONE
+  // TODO: Handle case where job has finished.
+
   if (state == FINISHED)
   {
     statusp = job->proc[0].exitcode;
     deljob(job);
   }
-  // job decided to die
-  // ? printf("DUPA: %d\n", state);
 
   return state;
 }
 
-// Returns job's command
 char *jobcmd(int j)
 {
   assert(j < njobmax);
@@ -191,7 +178,7 @@ char *jobcmd(int j)
 }
 
 /* Continues a job that has been stopped. If move to foreground was requested,
-   then move the job to foreground and start monitoring it. */
+ * then move the job to foreground and start monitoring it. */
 bool resumejob(int j, int bg, sigset_t *mask)
 {
   if (j < 0)
@@ -203,7 +190,7 @@ bool resumejob(int j, int bg, sigset_t *mask)
   if (j >= njobmax || jobs[j].state == FINISHED)
     return false;
 
-  // TODO: Continue stopped job. Possibly move job to foreground slot. DONE
+  // TODO: Continue stopped job. Possibly move job to foreground slot. */
 
   killpg(jobs[j].pgid, SIGCONT);
   jobs[j].state = RUNNING;
@@ -213,9 +200,7 @@ bool resumejob(int j, int bg, sigset_t *mask)
     movejob(j, 0);
     monitorjob(mask);
   }
-  // zadanie polega na tym, że
-  // trzeba będzie użyć killpg i tam sygnał "typu" SIGCONT
-  // potem jeszcze cos sprawdzamy
+
   return true;
 }
 
@@ -226,8 +211,10 @@ bool killjob(int j)
     return false;
   debug("[%d] killing '%s'\n", j, jobs[j].command);
 
-  // TODO: I love the smell of napalm in the morning. DONE
-  // somebody decided that job should die
+  // TODO: I love the smell of napalm in the morning. */
+
+  if (jobs[j].state == STOPPED)
+    kill(jobs[j].pgid, SIGCONT);
   kill(jobs[j].pgid, SIGTERM);
 
   return true;
@@ -236,16 +223,14 @@ bool killjob(int j)
 /* Report state of requested background jobs. Clean up finished jobs. */
 void watchjobs(int which)
 {
-  //printf("watchjob\n");
+  // printf("dupa");
   for (int j = BG; j < njobmax; j++)
   {
-    //printf("sprawdzam po kolei %d\n", j);
     if (jobs[j].pgid == 0)
       continue;
 
-    // TODO: Report job number, state, command and exit code or signal. DONE
+    // TODO: Report job number, state, command and exit code or signal. */
 
-    //printf("sprawdzam finish");
     if ((which == FINISHED || which == ALL) && jobs[j].state == FINISHED)
     {
       printf("[%d]+  ", j);
@@ -261,51 +246,51 @@ void watchjobs(int which)
       }
       deljob(&jobs[j]);
     }
-    //printf("sprawdzam run");
     if ((which == RUNNING || which == ALL) && jobs[j].state == RUNNING)
     {
       printf("[%d]+  ", j);
       printf("RUNNING               ");
-      //printf("Job state: %d\n", jobs[j].state);
       printf("%s\n", jobs[j].command);
     }
-    //printf("sprawdzam stop\n");
     if ((which == STOPPED || which == ALL) && jobs[j].state == STOPPED)
     {
       printf("[%d]+  ", j);
       printf("STOPPED               ");
-      //printf("Job state: %d\n", jobs[j].state);
       printf("%s\n", jobs[j].command);
     }
   }
 }
 
-// Monitor job execution. If it gets stopped move it to background.
-// When a job has finished or has been stopped move shell to foreground.
+/* Monitor job execution. If it gets stopped move it to background.
+ * When a job has finished or has been stopped move shell to foreground. */
 int monitorjob(sigset_t *mask)
 {
   int exitcode, state;
 
-  // TODO: Following code requires use of Tcsetpgrp of tty_fd. DONE
+  // TODO: Following code requires use of Tcsetpgrp of tty_fd. */
 
   Tcsetpgrp(tty_fd, jobs[0].pgid);
 
+  int job_state;
+
   while (true)
   {
-    int job_state = jobstate(0, &exitcode);
+    job_state = jobstate(0, &exitcode);
     if (job_state != RUNNING)
     {
-      // Sigprocmask(SIG_UNBLOCK, &sigchld_mask, NULL);
       break;
     }
     Sigsuspend(mask);
   }
+
   int candidate = allocjob();
   jobs[candidate].pgid = 0;
   movejob(FG, candidate);
-  // ? printf("ble 7");
-  //?printf("Questioning jobstate\n");
-  //?printf("Answering jobstate: %d\n", job_state);
+
+  if (job_state == STOPPED)
+  {
+    printf("[%d] suspended '%s' \n", candidate, jobs[candidate].command);
+  }
 
   Tcsetpgrp(tty_fd, getpgrp());
 
@@ -322,6 +307,13 @@ void initjobs(void)
   // Duplicate terminal fd, but do not leak it to subprocesses that execve. */
   assert(isatty(STDIN_FILENO));
   tty_fd = Dup(STDIN_FILENO);
+  fcntl(tty_fd, F_SETFD, FD_CLOEXEC);
+
+  /* Take control of the terminal. */
+  Tcsetpgrp(tty_fd, getpgrp());
+
+  /* Save default terminal attributes for the shell. */
+  Tcgetattr(tty_fd, &shell_tmodes);
 }
 
 /* Called just before the shell finishes. */
@@ -330,21 +322,19 @@ void shutdownjobs(void)
   sigset_t mask;
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
-  // TODO: Kill remaining jobs and wait for them to finish. DONE
+  // TODO: Kill remaining jobs and wait for them to finish. */
 
   for (int j = BG; j < njobmax; j++)
   {
-    int jobs_pgid = jobs[j].pgid;
-    if (jobs_pgid == 0)
-      continue;
-    else
+
+    Tcsetpgrp(tty_fd, jobs[j].pgid);
+
+    if (jobs[j].pgid != 0)
     {
       killjob(j);
-      if (jobs[j].state != FINISHED)
-      {
-        Sigsuspend(&mask);
-      }
+      printf("[%d] exited '%s', status=%d\n", j, jobs[j].command, jobs[j].state);
     }
+    Tcsetpgrp(tty_fd, getpgrp());
   }
 
   watchjobs(FINISHED);

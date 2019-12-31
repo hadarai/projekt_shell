@@ -1,37 +1,38 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-/*
-* 1. Moooooonitor job + SIGHILD handler
-* 2. DO JOB, background, foreground i "hill"?
-* Mozna wzorowac sie na tym sprzed tygodnia. 
-? Co to "terminal sterujacy"?
-Coś w stylu tego gdzie teraz jest pisane, to co teraz otrzymuje komendy (i sygnaly?)
-*/
-
 #define DEBUG 0
 #include "shell.h"
 
-sigset_t sigchld_mask; //maska procesu dziecka.
-// * Maska procesu to taka "maska", w ktorej jest napisane, ktore sygnaly do danego procesu wysyłane są blokowane.
+sigset_t sigchld_mask;
 
 static sigjmp_buf loop_env;
 
-static void sigint_handler(int sig) // * To handler sygnalu: "Interrupt signal", czyli ctrl+C
+static void sigint_handler(int sig)
 {
   siglongjmp(loop_env, sig);
 }
 
-// Consume all tokens related to redirection operators.
-// Put opened file descriptors into inputp & output respectively.
+/* Rewrite closed file descriptors to -1,
+ * to make sure we don't attempt do close them twice. */
+static void MaybeClose(int *fdp)
+{
+  if (*fdp < 0)
+    return;
+  Close(*fdp);
+  *fdp = -1;
+}
+
+/* Consume all tokens related to redirection operators.
+ * Put opened file descriptors into inputp & output respectively. */
 static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 {
-  token_t mode = NULL; // T_INPUT, T_OUTPUT or NULL
-  int n = 0;           // number of tokens after redirections are removed
+  token_t mode = NULL; /* T_INPUT, T_OUTPUT or NULL */
+  int n = 0;           /* number of tokens after redirections are removed */
 
   for (int i = 0; i < ntokens; i++)
   {
-    // TODO: Handle tokens and open files as requested. DONE
+    // TODO: Handle tokens and open files as requested.
 
     if (token[i] == T_INPUT)
     {
@@ -42,7 +43,6 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
 
       i++;
     }
-    //cat lexer.c > nwm.txt
     else if (token[i] == T_OUTPUT)
     {
       *outputp = Open(token[i + 1], O_WRONLY, mode);
@@ -62,37 +62,33 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp)
   return n;
 }
 
-// Execute internal command within shell's process or execute external command
-// in a subprocess. External command can be run in the background.
+/* Execute internal command within shell's process or execute external command
+ * in a subprocess. External command can be run in the background. */
 static int do_job(token_t *token, int ntokens, bool bg)
 {
   int input = -1, output = -1;
   int exitcode = 0;
 
   ntokens = do_redir(token, ntokens, &input, &output);
-  if ((exitcode = builtin_command(token)) >= 0)
-    return exitcode;
 
-  //maska pomocnicza, do ktorej cos skopiujemy
+  if (!bg)
+  {
+    if ((exitcode = builtin_command(token)) >= 0)
+      return exitcode;
+  }
+
   sigset_t mask;
-  //ustawia, ze sygnaly napisane w sigchld beda blokowane. stara maska jest w mask
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
-  // TODO: Start a subprocess, create a job and monitor it. DONE
+  // TODO: Start a subprocess, create a job and monitor it. */
 
   pid_t child_pid = Fork();
   size_t job_index;
 
   if (child_pid == 0)
   {
-    // Jestem w dziecku
     Sigprocmask(SIG_SETMASK, &mask, NULL);
-    // ?printf("poczatek instrukcji dziecka\n");
     Setpgid(0, 0);
-
-    // * Z dokumentacji:
-    // If pid is zero, then the process ID of the calling process is used.
-    // If pgid is zero, then the PGID of the process specified by pid is made the same as its process ID.
     Signal(SIGTSTP, SIG_DFL);
 
     if (input != -1)
@@ -103,45 +99,43 @@ static int do_job(token_t *token, int ntokens, bool bg)
     {
       Dup2(output, STDOUT_FILENO);
     }
-
     external_command(token);
-    //? printf("Wykonalem komende\n");
   }
   else
   {
-    //Jestem w rodzicu
-    //? printf("poczatek instrukcji rodzica\n");
     job_index = addjob(child_pid, bg);
     addproc(job_index, child_pid, token);
-    //Sigprocmask(SIG_SETMASK, &mask, NULL);
 
     if (bg == FG)
     {
       monitorjob(&mask);
-    }
+        }
   }
+
   Sigprocmask(SIG_SETMASK, &mask, NULL);
   return exitcode;
 }
 
 /* Start internal or external command in a subprocess that belongs to pipeline.
-   All subprocesses in pipeline must belong to the same process group. */
+ * All subprocesses in pipeline must belong to the same process group. */
 static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
                       token_t *token, int ntokens)
 {
   ntokens = do_redir(token, ntokens, &input, &output);
 
-  // TODO: Start a subprocess and make sure it's moved to a process group.
+  if (ntokens == 0)
+    app_error("ERROR: Command line is not well formed!");
 
-  pid_t child_pid = Fork();
+  // TODO: Start a subprocess and make sure it's moved to a process group. */
+
+  pid_t pid = Fork();
   size_t job_index;
 
-  if (child_pid == 0)
+  if (pid == 0)
   {
-    // Jestem w dziecku
     Sigprocmask(SIG_SETMASK, &mask, NULL);
     Setpgid(0, pgid);
-    Signal(SIGTSTP, SIG_DFL); //przywrocenie domyslnego zachowania dla procesu
+    Signal(SIGTSTP, SIG_DFL);
     if (input != -1)
     {
       Dup2(input, STDIN_FILENO);
@@ -150,35 +144,28 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
     {
       Dup2(output, STDOUT_FILENO);
     }
-    token[ntokens] = T_NULL; //bo chce by uruchomil mi tokeny od tam gdzie zaczyna sie *token do token[ntokens]
+    token[ntokens] = T_NULL;
     external_command(token);
   }
   else
   {
-    //job_index = addjob(pgid, );
-    //addproc(job_index?, pgid, token);
-
-    /*
-    if (bg == FG)
-    {
-      monitorjob(&mask);
-    }
-    */
   }
 
-  return child_pid;
+  return pid;
 }
 
 static void mkpipe(int *readp, int *writep)
 {
   int fds[2];
   Pipe(fds);
+  fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  fcntl(fds[1], F_SETFD, FD_CLOEXEC);
   *readp = fds[0];
   *writep = fds[1];
 }
 
-// Pipeline execution creates a multiprocess job. Both internal and external
-// commands are executed in subprocesses.
+/* Pipeline execution creates a multiprocess job. Both internal and external
+ * commands are executed in subprocesses. */
 static int do_pipeline(token_t *token, int ntokens, bool bg)
 {
   pid_t pid, pgid = 0;
@@ -193,7 +180,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   // TODO: Start pipeline subprocesses, create a job and monitor it.
-  // Remember to close unused pipe ends!
+  // Remember to close unused pipe ends! */
 
   int number_of_segments = 1;
   for (int i = 0; i < ntokens; i++)
@@ -201,9 +188,6 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
     if (token[i] == T_PIPE)
       number_of_segments++;
   }
-  // printf("Liczba segmentow: %d\n", number_of_segments);
-  // printf("Liczba tokenow: %d\n", ntokens);
-
   int stage_length = 0;
 
   int now = ntokens - 1;
@@ -214,66 +198,23 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
       break;
     stage_length++;
   }
-  // printf("pierwszy seg length: %d\n", stage_length);
+  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
+  mkpipe(&next_input, &output);
 
-  //print pierwszy stage - OSTATNI el. pipe'u
-
-  // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-  // mkpipe(&next_input, &output);
-
-  // now = now + stage_length + 1;
   now = ntokens - stage_length;
-  // printf("\n wypisuje od: %d\n", now);
-
-  for (int i = now; i < ntokens; i++)
-  {
-    printf("%s ", token[i]);
-  }
-
-  printf("\n");
-  //now = now - 2;
-  //print stage'y od przedostatniego do pierwszego
   for (size_t i = number_of_segments - 1; i > 1; i--)
   {
     now = now - stage_length;
     stage_length = 0;
 
-    //printf("teraz: %d\n", now);
-    // printf("\nzacznynam: %d\n", now);
     for (int j = now; j > 0; j--)
     {
       if (token[j] == T_PIPE)
         break;
       stage_length++;
     }
-    // input = next_input;
-    // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-    // mkpipe(&next_input, &output);
-
-    //printf("Teraz segment zaczuyna sie na i ma: %d %d \n", stage_length, now);
     now = now - stage_length + 1;
-    // printf("teraz: %d\n", now);
-    // printf(" seg length: %d\n", stage_length);
-    for (int j = now; j < stage_length + now; j++)
-    {
-      printf("%s ", token[j]);
-    }
-    printf("\n");
-
-    //now = now + stage_length;
   }
-  // ostatni stage
-
-  // mkpipe(&next_input, &output);
-
-  // for (size_t i = now; i < ntokens; i++)
-  // {
-  //   printf("%s", token[i]);
-  // }
-  // printf("\n");
-
-  // stage_length = 0;
-
   stage_length = 0;
   for (int j = 0; j < now; j++)
   {
@@ -282,17 +223,9 @@ static int do_pipeline(token_t *token, int ntokens, bool bg)
     stage_length++;
   }
   now = now - stage_length + 1;
-  printf("\n ostatni stage: %d\n", now);
-  // input = next_input;
-  // output = -1;
-  // pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
-
-  //print ostatni stage
-  for (int j = 0; j < now; j++)
-  {
-    printf("%s ", token[j]);
-  }
-  printf("\n");
+  input = next_input;
+  output = -1;
+  pid = do_stage(pgid, &mask, input, output, token[now], stage_length);
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
   return exitcode;
@@ -339,6 +272,8 @@ int main(int argc, char *argv[])
 
   sigemptyset(&sigchld_mask);
   sigaddset(&sigchld_mask, SIGCHLD);
+
+  Setpgid(0, 0);
 
   initjobs();
 

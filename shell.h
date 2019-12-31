@@ -12,7 +12,6 @@
 #endif
 
 typedef char *token_t;
-// token_t to char* - wskaznik na chara, wiec token_t to tablica charow
 
 #define T_NULL ((token_t)0)
 #define T_AND ((token_t)1)
@@ -31,15 +30,13 @@ void strapp(char **dstp, const char *src);
 token_t *tokenize(char *s, int *tokc_p);
 
 /* Do not change those values or code will break! */
-enum
-{
+enum {
   FG = 0, /* foreground job */
   BG = 1, /* background job */
 };
 
 /* Do not change those values or code will break! */
-enum
-{
+enum {
   ALL = -1,     /* all jobs */
   FINISHED = 0, /* only jobs that have finished */
   RUNNING = 1,  /* only jobs that are still running */
